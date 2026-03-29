@@ -434,9 +434,9 @@ async function startServer() {
         (session as any)._connectingLock = true;
 
         const connectionId = Date.now();
-        session.lastConnectionAttempt = connectionId;
+        const lastAttempt = session.lastConnectionAttempt || 0;
         let connectionTimeout: NodeJS.Timeout | undefined;
-
+        
         try {
             // Verificar se estamos em período de cool-down por conflito
             const conflictDelay = session.conflictCount ? Math.min(60000 * Math.pow(2.5, session.conflictCount - 1), 1800000) : 60000;
@@ -450,12 +450,14 @@ async function startServer() {
             }
 
             // Evitar reconexões muito frequentes (mínimo 10s entre tentativas)
-            if (session.lastConnectionAttempt && now - session.lastConnectionAttempt < 10000 && 
+            if (lastAttempt && now - lastAttempt < 10000 && 
                 reason !== 'manual_reconnect' && reason !== 'logout_reconnect' && reason !== 'aggressive_reconnect') {
-                console.log(`[${sessionId}] Conexão ignorada (motivo: ${reason}). Tentativa muito recente (${Math.round((now - session.lastConnectionAttempt)/1000)}s atrás).`);
+                console.log(`[${sessionId}] Conexão ignorada (motivo: ${reason}). Tentativa muito recente (${Math.round((now - lastAttempt)/1000)}s atrás).`);
                 (session as any)._connectingLock = false;
                 return;
             }
+
+            session.lastConnectionAttempt = connectionId;
 
             if (session.isConnecting || (session.status === 'open' && session.sock)) {
                 console.log(`Sessão ${sessionId} já conectada ou conectando (motivo: ${reason}). Pulando...`);
@@ -1711,7 +1713,12 @@ async function startServer() {
             socket.join(sessionId);
             const session = sessions.get(sessionId);
             if (session) {
-                socket.emit('status', session.status === 'open' ? 'connected' : 'disconnected');
+                let statusToSend: 'connected' | 'disconnected' | 'connecting' | 'qr' = 'disconnected';
+                if (session.status === 'open') statusToSend = 'connected';
+                else if (session.status === 'qr') statusToSend = 'qr';
+                else if (session.status === 'connecting') statusToSend = 'connecting';
+                
+                socket.emit('status', statusToSend);
                 if (session.qrCode) socket.emit('qr', session.qrCode);
                 if (session.pairingCode) socket.emit('pairing-code', session.pairingCode);
             }

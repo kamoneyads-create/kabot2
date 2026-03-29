@@ -51,7 +51,7 @@ export default function App() {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr');
-  const [status, setStatus] = useState<'connected' | 'disconnected' | 'connecting'>('connecting');
+  const [status, setStatus] = useState<'connected' | 'disconnected' | 'connecting' | 'qr'>('connecting');
   const [isPairing, setIsPairing] = useState(false);
   const [sessionName, setSessionName] = useState('Minha Conexão');
   const [connectedPhone, setConnectedPhone] = useState<string | null>(null);
@@ -135,9 +135,10 @@ export default function App() {
     });
 
     newSocket.on('qr', (qr: string) => {
+      console.log('QR Code recebido via socket');
       setQrCode(qr);
       setPairingCode(null);
-      setStatus('disconnected');
+      setStatus('qr');
       if (qr) setConnectionLogs(prev => [...prev.slice(-4), 'QR Code recebido!']);
     });
 
@@ -152,7 +153,8 @@ export default function App() {
       setConnectionLogs(prev => [...prev.slice(-4), message]);
     });
 
-    newSocket.on('status', (newStatus: 'connected' | 'disconnected') => {
+    newSocket.on('status', (newStatus: 'connected' | 'disconnected' | 'connecting' | 'qr') => {
+      console.log('Status da conexão atualizado:', newStatus);
       setStatus(newStatus);
       setConnectionLogs(prev => [...prev.slice(-4), `Status: ${newStatus}`]);
       if (newStatus === 'connected') {
@@ -245,6 +247,8 @@ export default function App() {
 
         const data = await res.json();
         if (data.status === 'open') setStatus('connected');
+        else if (data.status === 'qr') setStatus('qr');
+        else if (data.status === 'connecting') setStatus('connecting');
         else setStatus('disconnected');
         setQrCode(data.qr);
         setPairingCode(data.pairingCode);
@@ -625,6 +629,8 @@ export default function App() {
       const res = await fetch(`/api/status/${activeSessionId}`);
       const data = await res.json();
       if (data.status === 'open') setStatus('connected');
+      else if (data.status === 'qr') setStatus('qr');
+      else if (data.status === 'connecting') setStatus('connecting');
       else setStatus('disconnected');
       setQrCode(data.qr);
       setPairingCode(data.pairingCode);
@@ -965,7 +971,9 @@ export default function App() {
                 <div className={`w-1.5 h-1.5 rounded-full ${
                   status === 'connected' ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
                 }`} />
-                {status === 'connected' ? 'Conectado' : 'Desconectado'}
+                {status === 'connected' ? 'Conectado' : 
+                 status === 'connecting' ? 'Conectando...' : 
+                 status === 'qr' ? 'Aguardando QR' : 'Desconectado'}
               </div>
               <div className="flex items-center gap-2">
                 <button 
