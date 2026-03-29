@@ -1,0 +1,9 @@
+[
+  {
+    "id": "default",
+    "name": "Minha Conexão",
+    "phoneNumber": "556784060135",
+    "useGemini": false,
+    "geminiPrompt": "Você é um assistente virtual prestativo para uma empresa. Responda de forma curta e profissional."
+  }
+]
